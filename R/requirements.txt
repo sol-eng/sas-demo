@@ -1,0 +1,8 @@
+numpy==2.4.3
+packaging==26.0
+pandas==3.0.1
+python-dateutil==2.9.0.post0
+saspy==5.105.1
+setuptools==82.0.1
+six==1.17.0
+wheel==0.46.3

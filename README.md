@@ -1,4 +1,4 @@
-# SLC Demo
+# SAS Demo
 
 This repository contains demonstration code highlighting the possibilities in a polyglot/multilingual data science world, specifically using SAS and R. 
 

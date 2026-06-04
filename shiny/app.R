@@ -3,6 +3,63 @@ library(tidyverse)
 library(ggplot2)
 library(sasquatch)
 
+library(reticulate)
+
+#virtualenv_create("r-saspy", requirements = "requirements.txt")
+#use_virtualenv("r-saspy", required = TRUE)
+
+get_fresh_token <- function() {
+  audience <- Sys.getenv(
+    "WORKBENCH_AUDIENCE",
+    unset = "6f4b2e36-3798-4b48-b286-05692ff69ea3"
+  )
+  if (!nzchar(audience)) {
+    stop(
+      "WORKBENCH_AUDIENCE environment variable is not set; ",
+      "cannot request a Viya OAuth token.",
+      call. = FALSE
+    )
+  }
+
+  workbench <- import("posit.workbench")
+  client <- workbench$Client()
+  credentials <- client$oauth$get_credentials(audience = audience)
+  token <- credentials$access_token
+
+  if (is.null(token) || !nzchar(token)) {
+    stop(
+      "Workbench OAuth returned an empty access token for audience '",
+      audience, "'.",
+      call. = FALSE
+    )
+  }
+
+  token
+}
+
+connect_viya <- function() {
+  saspy<-import("saspy")
+  saspy$SASsession(
+    cfgname = "viya",
+    authtoken = get_fresh_token()
+  )
+}
+
+init_sas <- function() {
+  sess <- connect_viya()
+  assign("session", sess, envir = sasquatch:::.pkgenv)
+  invisible(sess)
+}
+
+# App-level flag so the SAS/Viya connection is established only once,
+# even across multiple user sessions.
+.sas_ready <- FALSE
+
+# Ensure the SAS/Viya session is closed when the app shuts down.
+onStop(function() {
+  sasquatch::sas_disconnect()
+})
+
 # UI
 ui <- fluidPage(
   titlePanel("Mixed Effects Analysis - Residuals by Study"),
@@ -42,6 +99,45 @@ ui <- fluidPage(
 
 # Server
 server <- function(input, output, session) {
+  # Establish the SAS/Viya connection once, showing a splash while it runs.
+  if (!.sas_ready) {
+    showModal(modalDialog(
+      title = "Connecting to SAS Viya",
+      tagList(
+        tags$div(
+          style = "text-align:center;",
+          tags$div(class = "spinner-border text-primary", role = "status"),
+          tags$p("Establishing SAS Viya session, please wait...")
+        )
+      ),
+      footer = NULL,
+      easyClose = FALSE
+    ))
+
+    # Run the blocking connect only after the modal has rendered.
+    session$onFlushed(function() {
+      tryCatch(
+        {
+          init_sas()
+          .sas_ready <<- TRUE
+          removeModal()
+        },
+        error = function(e) {
+          showModal(modalDialog(
+            title = "SAS Viya Connection Failed",
+            tagList(
+              tags$p("Could not establish a SAS Viya session."),
+              tags$pre(conditionMessage(e)),
+              tags$p("Verify that SAS Viya is available and reload the app to retry.")
+            ),
+            footer = modalButton("Dismiss"),
+            easyClose = TRUE
+          ))
+        }
+      )
+    }, once = TRUE)
+  }
+
   # Reactive values to store results
   values <- reactiveValues(
     mixed_results = NULL,
@@ -49,15 +145,6 @@ server <- function(input, output, session) {
     variance_components = NULL,
     study_data = NULL
   )
-
-  # Initialize SAS connection
-  sas_setup <- reactive({
-    req(input$run_analysis)
-
-    withProgress(message = "Initializing SAS...", value = 0.1, {
-      sasquatch::sas_connect(cfgname = "ssh", reconnect = TRUE)
-    })
-  })
 
   # Generate and analyze data when button is clicked
   observeEvent(input$run_analysis, {
@@ -118,11 +205,6 @@ server <- function(input, output, session) {
 
       values$study_data <- study_data
 
-      incProgress(0.3, detail = "Setting up SAS connection...")
-
-      # Get SAS setup
-      sasquatch::sas_connect(cfgname = "ssh", reconnect = TRUE)
-
       incProgress(0.4, detail = "Uploading data to SAS...")
 
       # Upload data to SAS
@@ -160,9 +242,6 @@ server <- function(input, output, session) {
 
       # Get the variance components results as R dataframe
       values$variance_components <- sas_to_r("variance_components")
-
-      # disconnect
-      sas_disconnect()
 
       incProgress(1.0, detail = "Complete!")
     })

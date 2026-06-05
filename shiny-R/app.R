@@ -23,9 +23,54 @@ get_fresh_token <- function() {
   } else if (product == "CONNECT") {
     # connect_viewer_token() picks up the visitor's Shiny session from the
     # parent environment, plus CONNECT_SERVER / CONNECT_API_KEY automatically.
-    token <- connectcreds::connect_viewer_token(
-      resource = Sys.getenv("CONNECT_VIYA_RESOURCE")
-    )$access_token
+    res <- Sys.getenv("CONNECT_VIYA_RESOURCE")
+    resource <- if (nzchar(res)) res else NULL
+
+    message("[get_fresh_token] CONNECT branch")
+    message("[get_fresh_token] CONNECT_SERVER = ", Sys.getenv("CONNECT_SERVER"))
+    message("[get_fresh_token] CONNECT_VIYA_RESOURCE = ",
+            if (is.null(resource)) "<unset/NULL>" else resource)
+    message("[get_fresh_token] has_viewer_token = ",
+            tryCatch(
+              connectcreds::has_viewer_token(resource = resource),
+              error = function(e) paste("error:", conditionMessage(e))
+            ))
+
+    token <- tryCatch(
+      connectcreds::connect_viewer_token(resource = resource)$access_token,
+      error = function(e) {
+        # The exchange failed (often a text/plain error body from Connect).
+        # Try to fetch the raw response from Connect's token endpoint so we
+        # can see exactly what was returned.
+        raw_info <- tryCatch(
+          {
+            server <- sub("/+$", "", Sys.getenv("CONNECT_SERVER"))
+            token_url <- paste0(server, "/__api__/v1/oauth/integrations/credentials")
+            resp <- httr2::request(token_url) |>
+              httr2::req_headers(
+                Authorization = paste("Key", Sys.getenv("CONNECT_API_KEY"))
+              ) |>
+              httr2::req_error(is_error = function(resp) FALSE) |>
+              httr2::req_perform()
+            paste0(
+              "\n--- raw token endpoint response ---",
+              "\nURL: ", token_url,
+              "\nstatus: ", httr2::resp_status(resp),
+              "\ncontent-type: ", httr2::resp_content_type(resp),
+              "\nbody:\n", httr2::resp_body_string(resp)
+            )
+          },
+          error = function(e2) paste0("\n(could not fetch raw response: ",
+                                      conditionMessage(e2), ")")
+        )
+
+        stop(
+          "connect_viewer_token() failed: ", conditionMessage(e),
+          raw_info,
+          call. = FALSE
+        )
+      }
+    )
 
   } else {
     stop("Unsupported POSIT_PRODUCT: '", product, "'.", call. = FALSE)

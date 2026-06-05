@@ -21,10 +21,7 @@ get_fresh_token <- function() {
     token <- client$oauth$get_credentials(audience = audience)$access_token
 
   } else if (product == "CONNECT") {
-    res <- Sys.getenv("CONNECT_VIYA_RESOURCE")
-    resource <- if (nzchar(res)) res else NULL
-
-    token <- connectcreds::connect_viewer_token(resource = resource)$access_token
+    token <- connectcreds::connect_viewer_token()$access_token
 
   } else {
     stop("Unsupported POSIT_PRODUCT: '", product, "'.", call. = FALSE)

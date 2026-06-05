@@ -91,25 +91,45 @@ renv::restore()
 
 ### Python environment
 
-`saspy` and its dependencies are installed into a reticulate-managed
-virtualenv. Create it once from `requirements.txt`:
+`saspy` and its dependencies live in a Python virtualenv that `reticulate`
+drives. You can create it with either `reticulate` or `uv`.
+
+**Option A — reticulate**
 
 ```r
 library(reticulate)
 virtualenv_create("r-saspy", requirements = "requirements.txt")
-use_virtualenv("r-saspy", required = TRUE)
 ```
 
-(The corresponding lines are present, commented out, near the top of `app.R`.)
+This creates the env under `~/.virtualenvs/r-saspy`.
 
-## Authentication
-
-The Viya connection uses a Posit Workbench OAuth token. Set the audience if it
-differs from the default baked into `app.R`:
+**Option B — uv** (faster, recommended)
 
 ```bash
-export WORKBENCH_AUDIENCE="<your-viya-audience-guid>"
+uv venv ~/.virtualenvs/r-saspy
+uv pip install --python ~/.virtualenvs/r-saspy/bin/python -r requirements.txt
 ```
+
+## Environment variables
+
+On **Posit Workbench**, set the following two variables (e.g. in `.Renviron`)
+so the app can find the Python env and request the correct Viya OAuth token:
+
+```bash
+# Point reticulate at the venv's Python interpreter created above
+RETICULATE_PYTHON="~/.virtualenvs/r-saspy/bin/python"
+
+# Viya OAuth audience/resource GUID used to mint the Workbench token
+WORKBENCH_VIYA_RESOURCE="<your-viya-resource-guid>"
+```
+
+- `RETICULATE_PYTHON` must point at the `bin/python` inside the virtualenv you
+  created above. If you used a different venv name or path, adjust accordingly.
+- `WORKBENCH_VIYA_RESOURCE` is read by `get_fresh_token()` in `app.R`; the app
+  errors at startup if it is not set when running on Workbench.
+
+On **Posit Connect**, the token is obtained via `connectcreds::connect_viewer_token()`
+and neither variable above is required.
 
 ## Run
 

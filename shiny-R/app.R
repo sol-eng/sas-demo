@@ -30,6 +30,23 @@ get_fresh_token <- function() {
     message("[get_fresh_token] CONNECT_SERVER = ", Sys.getenv("CONNECT_SERVER"))
     message("[get_fresh_token] CONNECT_VIYA_RESOURCE = ",
             if (is.null(resource)) "<unset/NULL>" else resource)
+
+    # --- Gate diagnostics: pinpoint why has_viewer_token() returns FALSE ---
+    message("[diag] POSIT_PRODUCT   = ", Sys.getenv("POSIT_PRODUCT"))
+    message("[diag] RSTUDIO_PRODUCT = ", Sys.getenv("RSTUDIO_PRODUCT"))
+    message("[diag] running_on_connect = ",
+            tryCatch(connectcreds:::running_on_connect(),
+                     error = function(e) paste("error:", conditionMessage(e))))
+    message("[diag] shiny namespace loaded = ", isNamespaceLoaded("shiny"))
+    message("[diag] reactive domain is NULL = ",
+            tryCatch(is.null(shiny::getDefaultReactiveDomain()),
+                     error = function(e) paste("error:", conditionMessage(e))))
+    message("[diag] get_connect_session() is NULL = ",
+            tryCatch(is.null(connectcreds:::get_connect_session()),
+                     error = function(e) paste("error:", conditionMessage(e))))
+    message("[diag] CONNECT_API_KEY set = ", nzchar(Sys.getenv("CONNECT_API_KEY")))
+    # ----------------------------------------------------------------------
+
     message("[get_fresh_token] has_viewer_token (resource) = ",
             tryCatch(
               connectcreds::has_viewer_token(resource = resource),

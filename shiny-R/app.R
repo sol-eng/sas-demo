@@ -65,6 +65,44 @@ get_fresh_token <- function() {
       }
     )
     message("[diag] connect_viewer_token() direct = ", direct)
+
+    # --- Raw request to the EXACT endpoint connectcreds uses ---------------
+    # Replicates connect_oauth_client(): {CONNECT_SERVER stripped of one
+    # trailing slash}/__api__/v1/oauth/integrations/credentials, with the
+    # visitor session token + API key. Captures the raw text/plain body.
+    raw_diag <- tryCatch(
+      {
+        sess <- connectcreds:::get_connect_session()
+        session_token <- sess$request$HTTP_POSIT_CONNECT_USER_SESSION_TOKEN
+        server_url <- sub("/$", "", Sys.getenv("CONNECT_SERVER"))
+        token_url <- paste0(server_url,
+                            "/__api__/v1/oauth/integrations/credentials")
+
+        resp <- httr2::request(token_url) |>
+          httr2::req_method("POST") |>
+          httr2::req_headers(
+            Authorization = paste("Key", Sys.getenv("CONNECT_API_KEY"))
+          ) |>
+          httr2::req_body_form(
+            grant_type         = "urn:ietf:params:oauth:grant-type:token-exchange",
+            subject_token_type = "urn:posit:connect:user-session-token",
+            subject_token      = session_token
+          ) |>
+          httr2::req_error(is_error = function(resp) FALSE) |>
+          httr2::req_perform()
+
+        paste0(
+          "\n  token_url      = ", token_url,
+          "\n  session_token? = ", !is.null(session_token),
+          "\n  status         = ", httr2::resp_status(resp),
+          "\n  content-type   = ", httr2::resp_content_type(resp),
+          "\n  body           = ",
+          substr(httr2::resp_body_string(resp), 1, 1000)
+        )
+      },
+      error = function(e) paste0("\n  (raw request failed: ", conditionMessage(e), ")")
+    )
+    message("[diag] raw token endpoint =", raw_diag)
     # ----------------------------------------------------------------------
 
     message("[get_fresh_token] has_viewer_token (resource) = ",

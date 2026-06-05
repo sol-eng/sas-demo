@@ -14,12 +14,12 @@
       "requires": "~=4.5.0"
     },
     "python": {
-      "requires": "~=3.14.0"
+      "requires": "~=3.13.0"
     }
   },
   "python": {
-    "version": "3.14.3",
-    "requires": "~=3.14.0",
+    "version": "3.13.3",
+    "requires": "~=3.13.0",
     "package_manager": {
       "name": "pip",
       "version": "26.1.1",

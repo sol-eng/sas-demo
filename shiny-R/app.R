@@ -91,13 +91,34 @@ get_fresh_token <- function() {
           httr2::req_error(is_error = function(resp) FALSE) |>
           httr2::req_perform()
 
+        # Read status/content-type/length FIRST; guard the body read so an
+        # empty body doesn't abort before we log the useful metadata.
+        status  <- httr2::resp_status(resp)
+        ctype   <- tryCatch(httr2::resp_content_type(resp),
+                            error = function(e) "<none>")
+        clen    <- tryCatch(httr2::resp_header(resp, "content-length"),
+                            error = function(e) "<none>")
+        body    <- tryCatch(
+          {
+            b <- httr2::resp_body_string(resp)
+            if (!nzchar(b)) "<empty>" else substr(b, 1, 1000)
+          },
+          error = function(e) paste0("<no body: ", conditionMessage(e), ">")
+        )
+        all_hdrs <- tryCatch(
+          paste(names(httr2::resp_headers(resp)), collapse = ", "),
+          error = function(e) "<none>"
+        )
+
         paste0(
           "\n  token_url      = ", token_url,
           "\n  session_token? = ", !is.null(session_token),
-          "\n  status         = ", httr2::resp_status(resp),
-          "\n  content-type   = ", httr2::resp_content_type(resp),
-          "\n  body           = ",
-          substr(httr2::resp_body_string(resp), 1, 1000)
+          "\n  status         = ", status,
+          "\n  status_desc    = ", httr2::resp_status_desc(resp),
+          "\n  content-type   = ", ctype,
+          "\n  content-length = ", clen,
+          "\n  headers        = ", all_hdrs,
+          "\n  body           = ", body
         )
       },
       error = function(e) paste0("\n  (raw request failed: ", conditionMessage(e), ")")

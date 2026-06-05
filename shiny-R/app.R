@@ -66,6 +66,58 @@ get_fresh_token <- function() {
     )
     message("[diag] connect_viewer_token() direct = ", direct)
 
+    # --- URL-construction probes -----------------------------------------
+    # The deployed app's POST returned 404 text/plain while an external curl
+    # to the "same" URL returned a JSON 400 (route exists). That asymmetry
+    # points at how the token URL is built from CONNECT_SERVER (trailing
+    # slash / double-slash / internal host). Probe each variant with a
+    # minimal malformed POST: a route-hit returns JSON 400 (code 211); a
+    # missing route returns bare 404 text/plain.
+    probe_url <- function(label, url) {
+      resp <- tryCatch(
+        httr2::request(url) |>
+          httr2::req_method("POST") |>
+          httr2::req_headers(
+            Authorization = paste("Key", Sys.getenv("CONNECT_API_KEY"))
+          ) |>
+          httr2::req_body_form(grant_type = "x") |>
+          httr2::req_error(is_error = function(resp) FALSE) |>
+          httr2::req_perform(),
+        error = function(e) e
+      )
+      if (inherits(resp, "error")) {
+        message("[probe] ", label, " (", url, ") -> ERROR ",
+                conditionMessage(resp))
+        return(invisible())
+      }
+      body <- tryCatch(
+        {
+          b <- httr2::resp_body_string(resp)
+          if (!nzchar(b)) "<empty>" else substr(b, 1, 200)
+        },
+        error = function(e) paste0("<no body: ", conditionMessage(e), ">")
+      )
+      ctype <- tryCatch(httr2::resp_content_type(resp),
+                        error = function(e) "<none>")
+      message(
+        "[probe] ", label,
+        "\n  url    = ", url,
+        "\n  status = ", httr2::resp_status(resp),
+        "\n  ctype  = ", ctype,
+        "\n  body   = ", body
+      )
+    }
+
+    base <- Sys.getenv("CONNECT_SERVER")
+    message("[probe] raw CONNECT_SERVER = '", base, "'")
+    base_clean <- sub("/+$", "", base)
+    api_path <- "/__api__/v1/oauth/integrations/credentials"
+    probe_url("clean (no trailing slash)", paste0(base_clean, api_path))
+    probe_url("trailing-slash kept",
+              paste0(base, sub("^/", "", api_path)))
+    probe_url("double-slash", paste0(base, api_path))
+    # ----------------------------------------------------------------------
+
     # --- Raw request to the EXACT endpoint connectcreds uses ---------------
     # Replicates connect_oauth_client(): {CONNECT_SERVER stripped of one
     # trailing slash}/__api__/v1/oauth/integrations/credentials, with the

@@ -9,29 +9,30 @@ library(reticulate)
 #use_virtualenv("r-saspy", required = TRUE)
 
 get_fresh_token <- function() {
-  audience <- Sys.getenv(
-    "WORKBENCH_AUDIENCE",
-    unset = "6f4b2e36-3798-4b48-b286-05692ff69ea3"
-  )
-  if (!nzchar(audience)) {
-    stop(
-      "WORKBENCH_AUDIENCE environment variable is not set; ",
-      "cannot request a Viya OAuth token.",
-      call. = FALSE
-    )
+  product <- Sys.getenv("POSIT_PRODUCT")
+
+  if (product == "WORKBENCH") {
+    audience <- Sys.getenv("WORKBENCH_VIYA_RESOURCE")
+    if (!nzchar(audience)) {
+      stop("WORKBENCH_VIYA_RESOURCE environment variable is not set.", call. = FALSE)
+    }
+    workbench <- import("posit.workbench")
+    client <- workbench$Client()
+    token <- client$oauth$get_credentials(audience = audience)$access_token
+
+  } else if (product == "CONNECT") {
+    # connect_viewer_token() picks up the visitor's Shiny session from the
+    # parent environment, plus CONNECT_SERVER / CONNECT_API_KEY automatically.
+    token <- connectcreds::connect_viewer_token(
+      resource = Sys.getenv("CONNECT_VIYA_RESOURCE")
+    )$access_token
+
+  } else {
+    stop("Unsupported POSIT_PRODUCT: '", product, "'.", call. = FALSE)
   }
 
-  workbench <- import("posit.workbench")
-  client <- workbench$Client()
-  credentials <- client$oauth$get_credentials(audience = audience)
-  token <- credentials$access_token
-
   if (is.null(token) || !nzchar(token)) {
-    stop(
-      "Workbench OAuth returned an empty access token for audience '",
-      audience, "'.",
-      call. = FALSE
-    )
+    stop("OAuth returned an empty access token.", call. = FALSE)
   }
 
   token

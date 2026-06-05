@@ -45,6 +45,26 @@ get_fresh_token <- function() {
             tryCatch(is.null(connectcreds:::get_connect_session()),
                      error = function(e) paste("error:", conditionMessage(e))))
     message("[diag] CONNECT_API_KEY set = ", nzchar(Sys.getenv("CONNECT_API_KEY")))
+
+    # has_viewer_token() swallows the real error via try_fetch + debug_inform.
+    # Call connect_viewer_token() directly to surface WHY the exchange fails.
+    direct <- tryCatch(
+      {
+        tok <- connectcreds::connect_viewer_token(resource = resource)$access_token
+        paste0("OK (nchar=", nchar(tok), ")")
+      },
+      error = function(e) {
+        # Walk the full condition chain to capture nested causes
+        msgs <- character(0)
+        cnd <- e
+        while (!is.null(cnd)) {
+          msgs <- c(msgs, conditionMessage(cnd))
+          cnd <- cnd$parent
+        }
+        paste0("ERROR chain:\n  - ", paste(msgs, collapse = "\n  - "))
+      }
+    )
+    message("[diag] connect_viewer_token() direct = ", direct)
     # ----------------------------------------------------------------------
 
     message("[get_fresh_token] has_viewer_token (resource) = ",

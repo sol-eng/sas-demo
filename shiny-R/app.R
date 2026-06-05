@@ -30,9 +30,14 @@ get_fresh_token <- function() {
     message("[get_fresh_token] CONNECT_SERVER = ", Sys.getenv("CONNECT_SERVER"))
     message("[get_fresh_token] CONNECT_VIYA_RESOURCE = ",
             if (is.null(resource)) "<unset/NULL>" else resource)
-    message("[get_fresh_token] has_viewer_token = ",
+    message("[get_fresh_token] has_viewer_token (resource) = ",
             tryCatch(
               connectcreds::has_viewer_token(resource = resource),
+              error = function(e) paste("error:", conditionMessage(e))
+            ))
+    message("[get_fresh_token] has_viewer_token (NULL) = ",
+            tryCatch(
+              connectcreds::has_viewer_token(),
               error = function(e) paste("error:", conditionMessage(e))
             ))
 

@@ -6,7 +6,7 @@ This repository contains demonstration code highlighting the possibilities in a 
 
 ### `/sas`
 
-Clinical Trial simulation using the SAS language. Can be run within Positron using the Altair SLC extension for VS Code. 
+Clinical Trial simulation using the SAS language. Can be run within Positron using the SAS extension for VS Code but also the Positron SAS Extension. 
 
 Contains SAS scripts:
 - `test.sas`: Example SAS script

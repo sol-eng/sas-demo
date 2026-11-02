@@ -14,7 +14,8 @@ get_fresh_token <- function() {
   if (product == "WORKBENCH") {
     audience <- Sys.getenv("WORKBENCH_VIYA_RESOURCE")
     if (!nzchar(audience)) {
-      stop("WORKBENCH_VIYA_RESOURCE environment variable is not set.", call. = FALSE)
+      # sascfg_personal.py finds the integration by its token URL
+      return(NULL)
     }
     workbench <- import("posit.workbench")
     client <- workbench$Client()
@@ -35,11 +36,13 @@ get_fresh_token <- function() {
 }
 
 connect_viya <- function() {
-  saspy<-import("saspy")
-  saspy$SASsession(
-    cfgname = "viya",
-    authtoken = get_fresh_token()
-  )
+  saspy <- import("saspy")
+  token <- get_fresh_token()
+  if (is.null(token)) {
+    saspy$SASsession(cfgname = "viya")
+  } else {
+    saspy$SASsession(cfgname = "viya", authtoken = token)
+  }
 }
 
 init_sas <- function() {

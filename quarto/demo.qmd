@@ -15,7 +15,7 @@ resource_files:
 ```{r setup}
 #| echo: false
 library(sasquatch)
-sas_connect()
+sas_connect(cfgname = "viya")
 ```
 
 # Introduction

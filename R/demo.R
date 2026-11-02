@@ -78,7 +78,7 @@ large_study_data |>
   )
 
 # Create a SAS session
-sasquatch::sas_connect(cfgname = "ssh", reconnect = TRUE)
+sasquatch::sas_connect(cfgname = "viya", reconnect = TRUE)
 
 # Copy R dataframe into SAS session context
 sas_from_r(large_study_data, "large_study_data")

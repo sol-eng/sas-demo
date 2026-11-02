@@ -38,14 +38,12 @@ os.environ.setdefault(
 # ---------------------------------------------------------------------------
 # SAS Viya connection
 # ---------------------------------------------------------------------------
-def get_fresh_token() -> str:
+def get_fresh_token() -> str | None:
     """Request a fresh Viya OAuth token from Posit Workbench."""
     audience = os.environ.get("WORKBENCH_AUDIENCE")
     if not audience:
-        raise RuntimeError(
-            "WORKBENCH_AUDIENCE environment variable is not set; "
-            "cannot request a Viya OAuth token."
-        )
+        # sascfg_personal.py finds the integration by its token URL
+        return None
 
     from posit.workbench import Client
 
@@ -63,7 +61,10 @@ def get_fresh_token() -> str:
 
 def connect_viya() -> "saspy.SASsession":
     """Open a SAS Viya session using a fresh OAuth token."""
-    return saspy.SASsession(cfgname="viya", authtoken=get_fresh_token())
+    token = get_fresh_token()
+    if token is None:
+        return saspy.SASsession(cfgname="viya")
+    return saspy.SASsession(cfgname="viya", authtoken=token)
 
 
 # Establish the SAS/Viya session once, at startup, shared across user sessions.

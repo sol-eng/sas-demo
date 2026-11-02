@@ -37,6 +37,17 @@ Contains Shiny web application:
 - `app.R`: Shiny application code
 - `renv.lock`: R environment dependency lock file
 
+## SAS Viya with Posit Workbench
+
+Every folder has a `viya` connection in `sascfg_personal.py`. In Posit Workbench it signs in to SAS Viya with the token from the Workbench OAuth integration whose token URL is `<VIYA_URL>/SASLogon/oauth/token`. Sign in to that integration once from the Workbench home page (Managed Credentials); no SAS password is needed in the code.
+
+Set these environment variables (for example in `.Renviron`):
+
+- `VIYA_URL`: the SAS Viya base URL
+- `VIYA_COMPUTE_CONTEXT`: the compute context, for example `SAS Job Execution compute context`
+
+`saspy` and `posit-sdk` must be installed in the Python environment that `reticulate` uses.
+
 ## Getting Started
 
 To run the examples in this repository, make sure you have the appropriate software installed:

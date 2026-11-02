@@ -10,12 +10,16 @@ Environment variables:
   VIYA_URL              SAS Viya base URL
   VIYA_COMPUTE_CONTEXT  compute context to start sessions in
   SAS_VIYA_TOKEN        use this access token instead of asking Workbench
+  SAS_CONFIG_NAMES      profiles to offer, comma-separated (default: viya)
+
+Keep one profile in SAS_config_names: with more than one, saspy asks which to
+use whenever sasquatch connects, even when cfgname is given.
 """
 
 import os
 import sys
 
-SAS_config_names = ['viya', 'ssh']
+SAS_config_names = os.environ.get('SAS_CONFIG_NAMES', 'viya').split(',')
 
 _VIYA_URL = os.environ.get('VIYA_URL', 'https://viya.pcluster.soleng.posit.it').rstrip('/')
 

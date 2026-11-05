@@ -1,8 +1,8 @@
 /* Analysis of the synthetic study dataset.
    Run create_data.sas first - it writes large_study_data.sas7bdat.
-   Set rootdir to the root of this repository (default: the SAS working
-   directory, i.e. run SAS from the repository root). */
-%let rootdir = .;
+   rootdir is the root of this repository, assumed to be ~/sas-demo on the
+   SAS server. Adjust it if you cloned the repository elsewhere. */
+%let rootdir = %sysget(HOME)/sas-demo;
 libname demo "&rootdir";
 
 /* Simple PROC MIXED analysis with residuals output */

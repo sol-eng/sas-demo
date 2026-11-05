@@ -2,9 +2,9 @@
    The file is written to two places:
      &rootdir/large_study_data.sas7bdat         (SAS analysis and R examples)
      &rootdir/quarto/large_study_data.sas7bdat  (extra copy for publishing Quarto)
-   Set rootdir to the root of this repository (default: the SAS working
-   directory, i.e. run SAS from the repository root). */
-%let rootdir = .;
+   rootdir is the root of this repository, assumed to be ~/sas-demo on the
+   SAS server. Adjust it if you cloned the repository elsewhere. */
+%let rootdir = %sysget(HOME)/sas-demo;
 libname demo "&rootdir";
 libname quarto "&rootdir/quarto";
 

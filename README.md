@@ -9,7 +9,7 @@ This repository contains demonstration code highlighting the possibilities in a 
 Clinical Trial simulation using the SAS language. Can be run within Positron using the SAS extension for VS Code but also the Positron SAS Extension. 
 
 Contains SAS scripts:
-- `create_data.sas`: Generates the synthetic study data and saves it as `large_study_data.sas7bdat` to the repository root, plus an extra copy in `/quarto`. **Run this first.** Set `rootdir` at the top of the script to the repository root (default: the SAS working directory).
+- `create_data.sas`: Generates the synthetic study data and saves it as `large_study_data.sas7bdat` to the repository root, plus an extra copy in `/quarto`. **Run this first.** `rootdir` at the top of the script defaults to `~/sas-demo` on the SAS server; adjust it if you cloned the repository elsewhere.
 - `test.sas`: Mixed model analysis and diagnostics on `large_study_data.sas7bdat`
 
 ### `/R`

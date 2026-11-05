@@ -34,12 +34,12 @@ data large_study_data;
                     gender_effect=gender * 3.1;
 
                     /* Random error */
-                    error=rand('normal', 0, 3.2);
+                    random_error=rand('normal', 0, 3.2);
 
                     /* Final outcome */
                     outcome=45 + time_trend + treatment_effect + age_effect +
                         gender_effect + study_effect + site_effect +
-                        subject_intercept + error;
+                        subject_intercept + random_error;
 
                     /* Add some missing data patterns */
                     if rand('uniform') < 0.05 then outcome=.;

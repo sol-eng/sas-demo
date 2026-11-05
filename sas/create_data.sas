@@ -1,13 +1,14 @@
 /* Create the synthetic study dataset and save it as a sas7bdat file.
-   Output: &datadir/large_study_data.sas7bdat
-   This file is the shared input for the SAS analysis (test.sas) and for the
-   R and Quarto examples. Set datadir to wherever the file should be written
-   (default: the SAS working directory). */
-%let datadir = .;
-libname demo "&datadir";
+   The file is written to two places:
+     &rootdir/large_study_data.sas7bdat         (SAS analysis and R examples)
+     &rootdir/quarto/large_study_data.sas7bdat  (extra copy for publishing Quarto)
+   Set rootdir to the root of this repository (default: the SAS working
+   directory, i.e. run SAS from the repository root). */
+%let rootdir = .;
+libname demo "&rootdir";
+libname quarto "&rootdir/quarto";
 
-/* Generate a manageable synthetic dataset for mixed effects modeling */
-data demo.large_study_data;
+data demo.large_study_data quarto.large_study_data;
     /* Set random seed for reproducibility */
     call streaminit(12345);
 

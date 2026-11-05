@@ -3,7 +3,7 @@ library(tidyverse)
 
 # Read the dataset created by sas/create_data.sas
 # (path is relative to the R/ folder)
-large_study_data <- haven::read_sas("../sas/large_study_data.sas7bdat")
+large_study_data <- haven::read_sas("../large_study_data.sas7bdat")
 
 # Check the dataset size (equivalent to PROC SQL)
 large_study_data |>

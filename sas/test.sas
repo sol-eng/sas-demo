@@ -1,8 +1,9 @@
 /* Analysis of the synthetic study dataset.
    Run create_data.sas first - it writes large_study_data.sas7bdat.
-   Set datadir to the folder containing that file. */
-%let datadir = .;
-libname demo "&datadir";
+   Set rootdir to the root of this repository (default: the SAS working
+   directory, i.e. run SAS from the repository root). */
+%let rootdir = .;
+libname demo "&rootdir";
 
 /* Simple PROC MIXED analysis with residuals output */
 proc hpmixed data=demo.large_study_data;

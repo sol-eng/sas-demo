@@ -1,72 +1,9 @@
 library(sasquatch)
 library(tidyverse)
 
-# Set random seed for reproducibility
-set.seed(12345)
-
-# Generate manageable synthetic dataset for mixed effects modeling
-large_study_data <- expand_grid(
-  study_id = 1:5,
-  site_id = 1:2,
-  subject_id = 1:20,
-  visit = 1:4
-) |>
-  mutate(
-    # Create unique subject identifier across all studies/sites
-    unique_subject_id = (study_id * 100) + (site_id * 20) + subject_id,
-
-    # Generate subject-level random effects (same for each subject across visits)
-    subject_intercept = rep(
-      rnorm(n_distinct(unique_subject_id), mean = 0, sd = 2),
-      each = 4
-    )[row_number()],
-
-    # Time-varying covariates
-    age = runif(n(), min = 18, max = 75),
-    gender = rbinom(n(), size = 1, prob = 0.52), # 52% female
-    treatment = rbinom(n(), size = 1, prob = 0.5), # 50% treatment
-    baseline_score = rnorm(n(), mean = 50, sd = 10),
-
-    # Study and site effects
-    study_effect = rnorm(n(), mean = 0, sd = 1.5),
-    site_effect = rnorm(n(), mean = 0, sd = 1.0),
-
-    # Generate outcome with complex mixed effects structure
-    time_trend = visit * 2.5,
-    treatment_effect = treatment * 8.3,
-    age_effect = (age - 45) * 0.2,
-    gender_effect = gender * 3.1,
-
-    # Random error
-    error = rnorm(n(), mean = 0, sd = 3.2),
-
-    # Final outcome
-    outcome = 45 +
-      time_trend +
-      treatment_effect +
-      age_effect +
-      gender_effect +
-      study_effect +
-      site_effect +
-      subject_intercept +
-      error
-  ) |>
-  # Add some missing data patterns
-  mutate(
-    outcome = if_else(runif(n()) < 0.05, NA_real_, outcome),
-    age = if_else(runif(n()) < 0.02, NA_real_, age)
-  ) |>
-  # Create categorical versions
-  mutate(
-    age_group = case_when(
-      is.na(age) ~ "Unknown",
-      age < 30 ~ "Young",
-      age < 50 ~ "Middle",
-      age >= 50 ~ "Older"
-    ),
-    treatment_group = if_else(treatment == 1, "Active", "Placebo"),
-    gender_label = if_else(gender == 1, "Female", "Male")
-  )
+# Read the dataset created by sas/create_data.sas
+# (path is relative to the R/ folder)
+large_study_data <- haven::read_sas("../sas/large_study_data.sas7bdat")
 
 # Check the dataset size (equivalent to PROC SQL)
 large_study_data |>

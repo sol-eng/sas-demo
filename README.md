@@ -9,11 +9,12 @@ This repository contains demonstration code highlighting the possibilities in a 
 Clinical Trial simulation using the SAS language. Can be run within Positron using the SAS extension for VS Code but also the Positron SAS Extension. 
 
 Contains SAS scripts:
-- `test.sas`: Example SAS script
+- `create_data.sas`: Generates the synthetic study data and saves it as `large_study_data.sas7bdat`. **Run this first.** Set `datadir` at the top of the script to control where the file is written; copy it into `/sas` so the R and Quarto examples can find it (`../sas/large_study_data.sas7bdat`).
+- `test.sas`: Mixed model analysis and diagnostics on `large_study_data.sas7bdat`
 
 ### `/R`
 
-Same as above, but data generation and visualisation steps replaced by R language. SAS is called from within R via the `sasquatch` package. 
+Same as above, but the analysis is driven from R and the visualisation steps are replaced by R language. The data is read from `sas/large_study_data.sas7bdat` via `haven::read_sas()`. SAS is called from within R via the `sasquatch` package. 
 
 Contains standalone R scripts:
 - `demo.R`: Example R script for data analysis
@@ -21,17 +22,18 @@ Contains standalone R scripts:
 
 ### `/quarto`
 
-Same approach than in `/R`, but wrapped everything into quarto code chunks. We no longer need to explicitly call SAS from R, it's all taken care by the quarto extension within the `slcr` package.
+Same approach than in `/R` (including reading `large_study_data.sas7bdat`), but wrapped everything into quarto code chunks. We no longer need to explicitly call SAS from R, it's all taken care by the quarto extension within the `slcr` package.
 
 Contains Quarto documents for reproducible data analysis and reporting:
 - `demo.qmd`: Example Quarto document
+- `large_study_data.sas7bdat`: Copy of `sas/large_study_data.sas7bdat`, kept here (and listed under `resource_files`) so it is bundled when publishing, e.g. to Posit Connect. Re-copy it whenever you regenerate the data.
 - `renv.lock`: R environment dependency lock file
 
 A sample document can be viewed at [https://pub.current.posit.team/public/quarto-sas/](https://pub.current.posit.team/public/quarto-sas/)
 
 ### `/shiny`
 
-Embed the `R` code from above into a R Shiny app for interactive visualisation. 
+Embed the `R` code from above into a R Shiny app for interactive visualisation. The data is generated dynamically in the app and does not use the `sas7bdat` file.
 
 Contains Shiny web application:
 - `app.R`: Shiny application code

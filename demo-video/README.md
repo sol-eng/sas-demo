@@ -1,13 +1,16 @@
 # Demo video automation
 
 Playwright (TypeScript) scripts that drive Posit Workbench and record two demo stories, each for two
-editions (SAS Analytics Pro over ssh, SAS Viya over REST), plus a Viya-only Clinical Acceleration story:
+editions (SAS Analytics Pro over ssh, SAS Viya over REST), plus a Viya-only Clinical Acceleration story and two
+Analytics Pro-only stories (SAS Studio, and Positron with the local SAS of the Analytics Pro image):
 
 | Story | Command | Output |
 |---|---|---|
 | Base: `sas/test.sas`, plots, connections, Data Explorer, Convert to Code, Fix, ask about a plot | `npm run demo:apro` / `npm run demo:viya` | `videos/demo-apro.mp4` / `videos/demo-viya.mp4` |
 | Housing: explain a SAS dataset with Posit Assistant, `/report`, Quarto Preview in a standalone window | `npm run demo:apro:housing` / `npm run demo:viya:housing` | `videos/demo-apro-housing.mp4` / `videos/demo-viya-housing.mp4` |
 | Clinical Acceleration (Viya only): set up the repository project with `../scripts`, check out / edit / check in `test.sas`, copy the study data to the workspace and read it in SAS | `npm run demo:viya:clinical` | `videos/demo-viya-clinical.mp4` |
+| SAS Studio (Analytics Pro only, no Positron): New Session > SAS Studio from the SAS Analytics Pro image, run `test.sas` in SAS Studio | `npm run demo:apro:studio` | `videos/demo-apro-studio.mp4` |
+| Local SAS (Analytics Pro only): Positron from the SAS Analytics Pro image, the auto-added `local` (stdio) profile, run `test.sas` | `npm run demo:apro:local` | `videos/demo-apro-local.mp4` |
 
 ## Prerequisites
 
@@ -18,6 +21,10 @@ editions (SAS Analytics Pro over ssh, SAS Viya over REST), plus a Viya-only Clin
   (complete settings files that are copied over the user `settings.json`).
 - Clinical story: extension **0.6.0-dev.23** (`~/positron-sas-0.6.0-dev.23.vsix`; downloaded from the GitHub
   pre-release by `installSasExtension` if missing). Clinical jobs, Run and Populate and Test need 0.6.0-dev.22+.
+- SAS Studio story: the Workbench "SAS Studio" session type (image `…/sas/apro:<version>`, SAS Studio signs in
+  with the Workbench login) and `~/sas-demo` with `large_study_data.sas7bdat` (`npm run setup`).
+- Local SAS story: the SAS extension >= 0.4.0 installed for the user (adds the `local` stdio profile when it
+  finds `/opt/sas/viya/home/SASFoundation/sas`), and the `…/sas/apro:<version>` image offered for Positron sessions.
 - Viya edition: the demo user signs in to SAS Viya with managed credentials (OAuth) during the recording.
 - Housing story only: the dataset `~/housing/ahs2023n.sas7bdat` (Positron opens `~/housing` as its workspace), the Quarto
   report skill of the extension, and the SAS host trusted by ssh for the demo user (Analytics Pro; see "Known issues").
@@ -121,6 +128,40 @@ Unrecorded, in the profile cut (`resetClinicalState`):
   again from `../large_study_data.sas7bdat` and `../sas/test.sas` (about 25 s). Nothing is copied to the server.
 - Clinical Jobs: Clear Finished Runs (hidden in Positron only); Clinical Job Schedules collapsed.
 
+### SAS Studio story (`src/studio.ts`)
+
+Subtitle "Analytics Pro edition", title "SAS Studio in Posit Workbench"; the architecture slide shows Posit Workbench
+running a SAS Analytics Pro session (Kubernetes logo) with SAS Studio and SAS 9.4+ inside, connected to the "PWB
+session init" (init container) box; LDAP and /home without arrows.
+The pre-roll only signs in to Workbench and quits all sessions (no Positron, no profile, no extension).
+
+1. **Launch SAS Studio:** New Session (dialog zoomed); Positron Pro first with its image (`…/pwb-session:…`)
+   highlighted, then SAS Studio with its image (`…/sas/apro:…`) highlighted; Launch. Workbench starts the pod
+   (~50 s) and SAS Studio signs in by itself and loads (~30 s), sped up.
+2. **Run SAS code:** Explorer > sas-analytics-pro > Home > sas-demo > sas (upper tree zoomed, so the files in `~`
+   stay out of the picture), open `test.sas`, hide the side pane, show the program zoomed, Run; zoom on the log
+   summary (Errors / Warnings / Notes), then the HPMIXED tables and the histogram, Q-Q plot and residual plot
+   from the Results tab (an `about:srcdoc` iframe; each plot scrolled into view and zoomed).
+
+The live zoom scales `<body>` on these pages (no `.monaco-workbench`). `STUDIO=1 npx tsx src/repl.ts <dir>` signs in
+and waits on the home page for snippets (they get the story as `studio`).
+
+### Local SAS story (`src/local.ts`)
+
+Title "Positron in SAS Analytics Pro"; the architecture slide shows SAS 9.4+ in the SAS Analytics Pro box and the
+Positron session in the "PWB session init" (init container) box, with a stdio arrow from Positron to SAS 9.4+.
+
+Pre-roll (`resetLocalState`, not recorded): a quiet Positron session from the default image in `~/sas-demo` closes
+the restored editors, removes `SAS.connectionProfiles` from the user settings (keeping the keys Workbench writes,
+adding `git.ignoreMissingGitWarning`: the apro image has no git) and clears the extension's `SAS.localProfileAdded`
+flag; then all sessions are quit.
+
+1. **Launch Positron:** sas-demo row > Create new session, Positron Pro, the default image highlighted, the Image
+   list opened and `…/sas/apro:…` picked and highlighted, Launch (~20 s).
+2. **Connect to SAS:** the status bar shows the `local` profile; Open User Settings (JSON) shows the profile the
+   extension added (`connectionType: stdio`, `saspath`), zoomed and highlighted; start the SAS (local) console.
+3. **Run SAS code:** `runTestSas` as in the base story (~6 s), the Viewer, the Plots pane.
+
 ## Text cards
 
 Cards are injected into the live page while recording (see `src/cards.ts`), so no extra post-processing is
@@ -162,6 +203,23 @@ needed. Fonts and the logo come from `assets/` (Posit brand).
 - "Viya failed to start / Connection timed out" on every attempt (also for REST sessions as viya_admin) is a cluster
   problem: check `kubectl -n sas-viya logs deploy/sas-launcher` (2026-11-10 it could not parse pod status on
   Kubernetes 1.36, `allocatedResources`, and launched no compute servers; it recovered by itself).
+
+## Known issues (local SAS story)
+
+- The extension adds the `local` profile once per user and records that in its global state, which Positron on
+  Workbench keeps in the browser-side storage (IndexedDB `positron-web-state-db-global`, key `posit.positron-sas`)
+  that Workbench restores for every new browser. `clearLocalProfileFlag` edits it from a Positron page.
+- If `settings.json` lacks the keys Workbench adds at session start (`remote.autoForwardPorts`,
+  `files.associations`), Workbench writes them while the extension adds its profile; the extension's write then
+  fails ("Failed to save 'settings.json': The content of the file is newer") and the profile is lost (status bar
+  "No Profile"). The reset therefore keeps those keys. Editing `settings.json` from a terminal while a window has
+  it loaded causes the same kind of conflict.
+
+## Known issues (SAS Studio story)
+
+- The New Session dialog opens on the last-used IDE, so the script always clicks the Positron tab first.
+- SAS Studio remembers the side pane across sessions (Explorer, another pane, or hidden); `runTestSas` clicks the
+  Explorer icon until the tree shows. Unsaved program tabs are restored too: close probe tabs with "Don't Save".
 
 ## Notes
 

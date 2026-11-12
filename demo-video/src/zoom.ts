@@ -1,5 +1,7 @@
 // Live zoom: scale the Positron UI (.monaco-workbench) with a CSS transform while recording, so a region
-// fills the screen and its text is re-rendered sharply (instead of upscaling pixels in post).
+// fills the screen and its text is re-rendered sharply (instead of upscaling pixels in post). Other pages
+// (Workbench home, SAS Studio) have no workbench element: there <body> is scaled. Overlays (cursor, cards,
+// highlights) hang off <html>, so they are never scaled.
 //
 // Clicks on elements of the top frame keep working while zoomed (bounding boxes include the transform),
 // but hit-testing inside iframes (Posit Assistant, Viewer) does not: helpers.hclick zooms out first for
@@ -42,7 +44,7 @@ export function unzoomBox(page: Page, b: Box): Box {
 async function apply(page: Page, st: State, ms: number) {
   await page.evaluate(
     ({ s, tx, ty, ms }) => {
-      const w = document.querySelector(".monaco-workbench") as HTMLElement | null;
+      const w = (document.querySelector(".monaco-workbench") ?? document.body) as HTMLElement | null;
       if (!w) return;
       // The scaled workbench overflows its ancestors; focusing an off-screen element would scroll them (overflow:
       // hidden still scrolls programmatically) and shift the picture. overflow: clip cannot scroll at all.

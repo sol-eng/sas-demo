@@ -195,13 +195,16 @@ export async function removeProfile(page: Page) {
  * Start the SAS session of the active connection profile from the console's session picker
  * ("Select Session" > "New Console Session..." > "SAS (Apro)" / "SAS (Viya)") and wait until it is up.
  */
-export async function startSasSession(page: Page, kind: "apro" | "viya", timeoutMs = 240_000) {
+/** "local": the stdio profile the extension adds in a SAS Analytics Pro session (SAS in the same container). */
+export type SasKind = "apro" | "viya" | "local";
+export async function startSasSession(page: Page, kind: SasKind, timeoutMs = 240_000) {
   await page.getByRole("tab", { name: "Console", exact: true }).click();
   await page.waitForTimeout(800);
   // Which button exists depends on whether R has auto-started yet (a folder without R files starts no session
   // at first): "Select Session" once a session exists, "Start Session" in the top bar when there is none.
-  const selectSession = page.getByRole("button", { name: "Select Session" });
-  const startSession = page.getByRole("button", { name: "Start Session" }).first();
+  // visible ones only: a console that failed to restore a session keeps hidden buttons of the same name
+  const selectSession = page.getByRole("button", { name: "Select Session" }).filter({ visible: true }).first();
+  const startSession = page.getByRole("button", { name: "Start Session" }).filter({ visible: true }).first();
   const appears = (loc: typeof selectSession, name: "select" | "start") =>
     loc.waitFor({ state: "visible", timeout: 90_000 }).then(() => name, () => undefined);
   const which = await Promise.race([appears(selectSession, "select"), appears(startSession, "start")]);
@@ -214,7 +217,7 @@ export async function startSasSession(page: Page, kind: "apro" | "viya", timeout
   } else {
     throw new Error("neither 'Select Session' nor 'Start Session' appeared");
   }
-  const label = kind === "viya" ? "SAS (Viya)" : "SAS (Apro)";
+  const label = kind === "viya" ? "SAS (Viya)" : kind === "local" ? "SAS (local)" : "SAS (Apro)";
   // Filter the picker by typing instead of clicking: the list re-sorts while interpreters are still
   // being discovered, and a click on a position could land on "R 4.5.3".
   const entry = page.getByText(label, { exact: true }).filter({ visible: true }).first();
@@ -230,10 +233,10 @@ export async function startSasSession(page: Page, kind: "apro" | "viya", timeout
       if (/Viya started\./.test(text)) break;
       // The Viya compute server sometimes times out while creating the session; a retry would film the failure.
       if (/Viya failed to start/.test(text)) throw new Error("Viya failed to start (compute server timeout) - run the demo again");
-    } else if (await page.getByText(/SAS Session \(apro\)/i).first().isVisible().catch(() => false)) {
+    } else if (await page.getByText(kind === "local" ? /SAS Session \(local\)/ : /SAS Session \(apro\)/i).first().isVisible().catch(() => false)) {
       break;
     }
-    if (Date.now() > deadline) throw new Error("Timed out waiting for the SAS session");
+    if (Date.now() > deadline) throw new Error(`Timed out waiting for the SAS session; console: ${text.slice(0, 400)}`);
     await page.waitForTimeout(1000);
   }
   await page.waitForTimeout(kind === "viya" ? 8000 : 2000); // "Viya started." precedes the active session by a few seconds
@@ -244,7 +247,7 @@ export async function startSasSession(page: Page, kind: "apro" | "viya", timeout
  * Viya console does not, so there we wait until the console output has changed and then stayed quiet for a few
  * seconds.
  */
-export async function waitForConsoleDone(page: Page, kind: "apro" | "viya", trigger: () => Promise<void>, timeoutMs = 300_000) {
+export async function waitForConsoleDone(page: Page, kind: SasKind, trigger: () => Promise<void>, timeoutMs = 300_000) {
   const baseline = (await consoleText(page)).length;
   const marks = (await consoleText(page)).split("submit-end").length;
   await trigger();
@@ -478,7 +481,7 @@ export async function highlightRegion(page: Page, r: { x: number; y: number; wid
     const d = document.createElement("div");
     d.id = "__hl";
     d.style.cssText = `position:fixed;z-index:2147483646;left:${r.x}px;top:${r.y}px;width:${r.width}px;height:${r.height}px;border:5px solid #ff5a00;border-radius:8px;box-shadow:0 0 18px rgba(255,90,0,.7);pointer-events:none`;
-    document.body.appendChild(d);
+    document.documentElement.appendChild(d); // outside a scaled <body> (zoom.ts)
   }, r);
   await page.waitForTimeout(ms);
   await page.evaluate(() => document.getElementById("__hl")?.remove());

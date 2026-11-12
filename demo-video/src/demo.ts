@@ -11,12 +11,14 @@ import { chromium, type Locator, type Page } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { VIEWPORT, SLOW_MO, beat } from "./config.ts";
 import * as h from "./helpers.ts";
-import { CAPTION_MODE, CARDS, CLINICAL, EDITION, HOUSING, STORY_SUFFIX, mountCard, removeCard, showCard, type Card, type CaptionId } from "./cards.ts";
+import { CAPTION_MODE, CARDS, CLINICAL, EDITION, HOUSING, LOCAL, STORY_SUFFIX, STUDIO, mountCard, removeCard, showCard, type Card, type CaptionId } from "./cards.ts";
 import { caption, fast, since, startClock, timing } from "./timeline.ts";
 import { part, unzoomBox, upper, zoomAssistant, zoomOn, zoomOut, zoomPanel, zoomToBox } from "./zoom.ts";
 import * as v from "./viya-login.ts";
 import { explore, HOUSING_DIR } from "./explore.ts";
 import * as clinical from "./clinical.ts";
+import * as studio from "./studio.ts";
+import * as local from "./local.ts";
 
 const VIDEO_DIR = "videos";
 mkdirSync(VIDEO_DIR, { recursive: true });
@@ -52,6 +54,17 @@ async function step(name: string, fn: () => Promise<void>) {
 // ---------------------------------------------------------------- steps ----
 
 async function preroll() {
+  if (LOCAL) {
+    // user settings and the extension's "local profile added" flag reset; no sessions, home page
+    await local.resetLocalState(page);
+    return;
+  }
+  if (STUDIO) {
+    // signed in to Workbench (not on camera), no sessions, home page
+    await h.login(page);
+    await h.quitAllSessions(page);
+    return;
+  }
   if (EDITION === "viya") {
     await v.prepareViya(page); // clean sessions, signed out of SAS Viya CAF, home page
     return;
@@ -422,7 +435,19 @@ try {
     await card("title", CARDS.title, { fadeIn: false });
     await card("architecture", CARDS.architecture);
   }
-  if (EDITION === "viya") {
+  if (LOCAL) {
+    // the local SAS story sets its own captions
+    await step("1 new session: Positron from the Analytics Pro image", () => local.launchPositron(page));
+    await step("2 the auto-added local profile, start SAS (local)", () => local.showLocalProfile(page));
+    caption("run");
+    await step("3a run test.sas", runTestSas);
+    await step("3b viewer", () => local.showViewer(page));
+    await step("3c plots", showPlots);
+  } else if (STUDIO) {
+    // the SAS Studio story sets its own captions
+    await step("1 new session: SAS Studio from the Analytics Pro image", () => studio.launchStudio(page));
+    await step("2 open and run test.sas in SAS Studio", () => studio.runTestSas(page));
+  } else if (EDITION === "viya") {
     await chapter("login and OAuth integration", CARDS.signin!, "signin");
     await fast("fast", () => step("1a new session, managed credentials", () => v.openManagedCredentials(page)));
     await fast("fast", () => step("1b sign in to SAS Viya CAF", signInToViya));
@@ -433,7 +458,9 @@ try {
     await chapter("profile", CARDS.profile, "profile");
     await step("profile: add apro.profile, reload, start SAS", addProfileApro);
   }
-  if (CLINICAL) {
+  if (STUDIO || LOCAL) {
+    // done above
+  } else if (CLINICAL) {
     // the clinical steps set their own captions
     if (!CAPTION_MODE) await card("check out and get the data", CARDS.checkoutData);
     await step("2 check out test.sas, copy the data to the workspace", () => clinical.checkoutAndCopyData(page));
@@ -498,13 +525,15 @@ try {
   } catch (e) {
     console.error("CLEANUP FAILED - quit sessions manually (npm run cleanup):", String(e).split("\n")[0]);
   }
-  // Remove the connection profile again (settings.json), unrecorded
-  try {
-    const cleanup = await context.newPage();
-    await h.cleanupProfile(cleanup);
-    await cleanup.close();
-  } catch (e) {
-    console.error("PROFILE CLEANUP FAILED:", String(e).split("\n")[0]);
+  // Remove the connection profile again (settings.json), unrecorded; the SAS Studio story adds none
+  if (!STUDIO) {
+    try {
+      const cleanup = await context.newPage();
+      await h.cleanupProfile(cleanup);
+      await cleanup.close();
+    } catch (e) {
+      console.error("PROFILE CLEANUP FAILED:", String(e).split("\n")[0]);
+    }
   }
   const mainVideo = page.video();
   await context.close();

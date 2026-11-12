@@ -15,6 +15,8 @@
     "demo:apro:housing": "EDITION=apro STORY=housing tsx src/record.ts",
     "demo:viya:housing": "EDITION=viya STORY=housing tsx src/record.ts",
     "demo:viya:clinical": "EDITION=viya STORY=clinical tsx src/record.ts",
+    "demo:apro:studio": "EDITION=apro STORY=studio tsx src/record.ts",
+    "demo:apro:local": "EDITION=apro STORY=local tsx src/record.ts",
     "cleanup:profile": "tsx src/cleanup-profile.ts"
   },
   "devDependencies": {

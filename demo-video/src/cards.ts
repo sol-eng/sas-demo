@@ -15,10 +15,16 @@ export const HOUSING = process.env.STORY === "housing";
 /** STORY=clinical: the SAS Clinical Acceleration video (Viya only: repository setup, check-out/check-in, workspace data). */
 export const CLINICAL = process.env.STORY === "clinical";
 if (CLINICAL && EDITION !== "viya") throw new Error("STORY=clinical needs EDITION=viya");
-/** Suffix of the video and timing file names for the story ("", "-housing", "-clinical"). */
-export const STORY_SUFFIX = HOUSING ? "-housing" : CLINICAL ? "-clinical" : "";
+/** STORY=studio: SAS Studio from the SAS Analytics Pro image as a Workbench session (Apro only, no Positron). */
+export const STUDIO = process.env.STORY === "studio";
+if (STUDIO && EDITION !== "apro") throw new Error("STORY=studio needs EDITION=apro");
+/** STORY=local: Positron from the SAS Analytics Pro image, with the SAS 9.4 of that container (stdio profile). */
+export const LOCAL = process.env.STORY === "local";
+if (LOCAL && EDITION !== "apro") throw new Error("STORY=local needs EDITION=apro");
+/** Suffix of the video and timing file names for the story ("", "-housing", "-clinical", "-studio", "-local"). */
+export const STORY_SUFFIX = HOUSING ? "-housing" : CLINICAL ? "-clinical" : STUDIO ? "-studio" : LOCAL ? "-local" : "";
 export const EDITION_TITLE = CLINICAL ? "Clinical Acceleration" : EDITION === "viya" ? "Viya edition" : "Analytics Pro edition";
-const TOTAL_STEPS = CLINICAL ? 6 : HOUSING ? (EDITION === "viya" ? 3 : 2) : EDITION === "viya" ? 9 : 8;
+const TOTAL_STEPS = CLINICAL ? 6 : STUDIO ? 2 : LOCAL ? 3 : HOUSING ? (EDITION === "viya" ? 3 : 2) : EDITION === "viya" ? 9 : 8;
 /**
  * Caption mode (all stories): no full-screen step cards; finalize.ts shows the screen a bit smaller with a caption
  * bar underneath (CAPTIONS below). The step cards below are kept for `npm run cards` and the non-caption code paths.
@@ -55,7 +61,7 @@ const stage = (title: string, lines: string[]): Card => ({
   seconds: STAGE_SECONDS,
 });
 const skipped = (title: string, lines: string[]): Card => ({ eyebrow: "", title, lines, seconds: 0 });
-const base = (title: string, lines: string[]): Card => (HOUSING || CLINICAL ? skipped(title, lines) : stage(title, lines));
+const base = (title: string, lines: string[]): Card => (HOUSING || CLINICAL || STUDIO || LOCAL ? skipped(title, lines) : stage(title, lines));
 const housingStage = (title: string, lines: string[]): Card => (HOUSING ? stage(title, lines) : skipped(title, lines));
 const clinicalStage = (title: string, lines: string[]): Card => (CLINICAL ? stage(title, lines) : skipped(title, lines));
 
@@ -65,6 +71,8 @@ const clinicalStage = (title: string, lines: string[]): Card => (CLINICAL ? stag
  * two systems.
  */
 function architectureSvg(edition: "apro" | "viya") {
+  if (STUDIO) return studioArchitectureSvg();
+  if (LOCAL) return localArchitectureSvg();
   const sas = edition === "viya" ? "SAS Viya" : "SAS Analytics Pro";
   // clinical story: the SAS box names the Clinical Acceleration Repository on a second line
   const sasText = CLINICAL
@@ -118,20 +126,136 @@ function architectureSvg(edition: "apro" | "viya") {
 </svg>`;
 }
 
+/**
+ * Architecture slide of the SAS Studio story: no separate SAS server - Posit Workbench runs a SAS Analytics Pro
+ * session (Kubernetes pod) with SAS Studio and SAS 9.4+ inside, next to the Workbench session init container.
+ * LDAP and /home as on the other slides, without arrows (they would all point at the one Workbench box).
+ */
+function studioArchitectureSvg() {
+  // read here, not with dataUri(): CARDS (and so this function) is evaluated before dataUri is defined
+  const k8s = `data:image/svg+xml;base64,${readFileSync(new URL("../assets/kubernetes.svg", import.meta.url)).toString("base64")}`;
+  return `<svg class="arch" viewBox="0 0 1560 600" width="1560" height="600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="ah" viewBox="0 0 12 12" refX="11" refY="6" markerUnits="userSpaceOnUse" markerWidth="24" markerHeight="24" orient="auto-start-reverse">
+      <path d="M0,0 L12,6 L0,12 z" fill="#EE6331"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#1B2A38;stroke:#9FC2E6;stroke-width:3}
+    .inner{fill:#26394B;stroke:#9FC2E6;stroke-width:2}
+    .inner2{fill:#33495E;stroke:#9FC2E6;stroke-width:2}
+    .boxt{fill:#fff;font:400 36px "Open Sans",Arial,sans-serif;text-anchor:middle}
+    .innert{fill:#fff;font:400 30px "Open Sans",Arial,sans-serif;text-anchor:middle}
+    .lbl{fill:#D0DBE5;font:400 28px "Source Code Pro",monospace;text-anchor:middle}
+    .arrow{stroke:#EE6331;stroke-width:5;fill:none;marker-end:url(#ah)}
+    .user{fill:#fff}
+  </style>
+  <!-- user -->
+  <g class="user">
+    <circle cx="60" cy="255" r="30"/>
+    <path d="M0,355 C0,307 28,291 60,291 C92,291 120,307 120,355 Z"/>
+  </g>
+  <text class="lbl" x="60" y="407">User</text>
+  <!-- Posit Workbench, running the SAS Analytics Pro session (a Kubernetes pod) -->
+  <rect class="box" x="280" y="150" width="1220" height="300" rx="12"/>
+  <text class="boxt" x="310" y="197" style="text-anchor:start">Posit Workbench</text>
+  <rect class="inner" x="330" y="215" width="800" height="205" rx="10"/>
+  <image href="${k8s}" x="546" y="226" width="48" height="47"/>
+  <text class="innert" x="610" y="260" style="text-anchor:start">SAS Analytics Pro</text>
+  <rect class="inner2" x="365" y="292" width="345" height="100" rx="8"/>
+  <text class="innert" x="537" y="352">SAS Studio</text>
+  <rect class="inner2" x="750" y="292" width="345" height="100" rx="8"/>
+  <text class="innert" x="922" y="352">SAS 9.4+</text>
+  <!-- the Workbench session init container of the same pod -->
+  <line x1="1130" y1="317" x2="1190" y2="317" stroke="#9FC2E6" stroke-width="3"/>
+  <rect class="inner" x="1190" y="262" width="260" height="110" rx="10"/>
+  <text class="innert" x="1320" y="315" style="font-size:27px">PWB session init</text>
+  <text class="lbl" x="1320" y="351" style="font-size:22px">init container</text>
+  <!-- LDAP above, /home below -->
+  <rect class="box" x="720" y="10" width="220" height="100" rx="12"/>
+  <text class="boxt" x="830" y="73">LDAP</text>
+  <rect class="box" x="720" y="490" width="220" height="100" rx="12"/>
+  <text class="boxt" x="830" y="553">/home</text>
+  <text class="lbl" x="956" y="548" style="text-anchor:start">shared home directories</text>
+  <!-- arrow -->
+  <path class="arrow" d="M130,315 L272,315"/>
+  <text class="lbl" x="201" y="285">SSO</text>
+</svg>`;
+}
+
+/**
+ * Architecture slide of the local SAS story: Posit Workbench runs a SAS Analytics Pro session (Kubernetes pod); the
+ * Positron session comes from the Workbench session init container and uses the container's SAS 9.4 over stdio.
+ */
+function localArchitectureSvg() {
+  const k8s = `data:image/svg+xml;base64,${readFileSync(new URL("../assets/kubernetes.svg", import.meta.url)).toString("base64")}`;
+  return `<svg class="arch" viewBox="0 0 1560 600" width="1560" height="600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="ah" viewBox="0 0 12 12" refX="11" refY="6" markerUnits="userSpaceOnUse" markerWidth="24" markerHeight="24" orient="auto-start-reverse">
+      <path d="M0,0 L12,6 L0,12 z" fill="#EE6331"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#1B2A38;stroke:#9FC2E6;stroke-width:3}
+    .inner{fill:#26394B;stroke:#9FC2E6;stroke-width:2}
+    .inner2{fill:#33495E;stroke:#9FC2E6;stroke-width:2}
+    .boxt{fill:#fff;font:400 36px "Open Sans",Arial,sans-serif;text-anchor:middle}
+    .innert{fill:#fff;font:400 30px "Open Sans",Arial,sans-serif;text-anchor:middle}
+    .lbl{fill:#D0DBE5;font:400 28px "Source Code Pro",monospace;text-anchor:middle}
+    .arrow{stroke:#EE6331;stroke-width:5;fill:none;marker-end:url(#ah)}
+    .user{fill:#fff}
+  </style>
+  <!-- user -->
+  <g class="user">
+    <circle cx="60" cy="255" r="30"/>
+    <path d="M0,355 C0,307 28,291 60,291 C92,291 120,307 120,355 Z"/>
+  </g>
+  <text class="lbl" x="60" y="407">User</text>
+  <!-- Posit Workbench, running the SAS Analytics Pro session (a Kubernetes pod) -->
+  <rect class="box" x="280" y="150" width="1220" height="300" rx="12"/>
+  <text class="boxt" x="310" y="197" style="text-anchor:start">Posit Workbench</text>
+  <rect class="inner" x="330" y="215" width="490" height="205" rx="10"/>
+  <image href="${k8s}" x="420" y="226" width="48" height="47"/>
+  <text class="innert" x="482" y="260" style="text-anchor:start">SAS Analytics Pro</text>
+  <rect class="inner2" x="370" y="292" width="410" height="100" rx="8"/>
+  <text class="innert" x="575" y="352">SAS 9.4+</text>
+  <!-- the Workbench session init container brings Positron into the same pod -->
+  <rect class="inner" x="930" y="215" width="520" height="205" rx="10"/>
+  <text class="innert" x="1190" y="255" style="font-size:27px">PWB session init</text>
+  <text class="lbl" x="1190" y="284" style="font-size:22px">init container</text>
+  <rect class="inner2" x="970" y="302" width="440" height="90" rx="8"/>
+  <text class="innert" x="1190" y="357">Positron session</text>
+  <path class="arrow" d="M962,347 L788,347"/>
+  <text class="lbl" x="875" y="331" style="font-size:24px">stdio</text>
+  <!-- LDAP above, /home below -->
+  <rect class="box" x="720" y="10" width="220" height="100" rx="12"/>
+  <text class="boxt" x="830" y="73">LDAP</text>
+  <rect class="box" x="720" y="490" width="220" height="100" rx="12"/>
+  <text class="boxt" x="830" y="553">/home</text>
+  <text class="lbl" x="956" y="548" style="text-anchor:start">shared home directories</text>
+  <!-- arrow -->
+  <path class="arrow" d="M130,315 L272,315"/>
+  <text class="lbl" x="201" y="285">SSO</text>
+</svg>`;
+}
+
 // Edit the wording here.
 export const CARDS = {
   title: {
     eyebrow: "SAS in Posit Workbench",
-    title: "Positron Extension for SAS",
+    title: STUDIO ? "SAS Studio in Posit Workbench" : LOCAL ? "Positron in SAS Analytics Pro" : "Positron Extension for SAS",
     subtitle: EDITION_TITLE,
     lines: [
       CLINICAL
         ? "Work with the SAS Clinical Acceleration Repository in Positron."
-        : "Write, run and explore SAS code in Positron on Posit Workbench.",
+        : STUDIO
+          ? "Launch SAS Studio from the SAS Analytics Pro image, next to Positron, RStudio and Jupyter."
+          : LOCAL
+            ? "Run Positron in the SAS Analytics Pro image and use its SAS 9.4 directly."
+            : "Write, run and explore SAS code in Positron on Posit Workbench.",
     ],
-    link: LINK,
+    ...(STUDIO ? {} : { link: LINK, qr: true }),
     tagline: true,
-    qr: true,
     seconds: process.env.CARD_SECONDS ? STAGE_SECONDS : CAPTION_MODE ? 4 : 8,
   } satisfies Card,
   architecture: {
@@ -208,16 +332,25 @@ export const CARDS = {
     "Posit Assistant sees the code and plots from this session.",
     "Ask it to explain one of the plots that test.sas created.",
   ]),
-  closing: {
-    eyebrow: "Get started",
-    title: "Positron Extension for SAS",
-    subtitle: EDITION_TITLE,
-    lines: ["Documentation and installation:"],
-    link: LINK,
-    tagline: true,
-    qr: true,
-    seconds: 6,
-  } satisfies Card,
+  closing: (STUDIO
+    ? {
+        eyebrow: "SAS in Posit Workbench",
+        title: "SAS Studio in Posit Workbench",
+        subtitle: EDITION_TITLE,
+        lines: ["One Workbench for SAS Studio, Positron, RStudio and Jupyter.", "Same login, same home directory."],
+        tagline: true,
+        seconds: 6,
+      }
+    : {
+        eyebrow: "Get started",
+        title: "Positron Extension for SAS",
+        subtitle: EDITION_TITLE,
+        lines: ["Documentation and installation:"],
+        link: LINK,
+        tagline: true,
+        qr: true,
+        seconds: 6,
+      }) satisfies Card,
 };
 
 // -------------------------------------------------------------- captions ----
@@ -225,6 +358,8 @@ export const CARDS = {
 // demo.ts / explore.ts switch captions with timeline.caption(id); finalize.ts renders and places them.
 
 const SAS_NAME = EDITION === "viya" ? "SAS Viya" : "SAS Analytics Pro";
+/** chapter of "Run SAS code": 02 in the base story, 03 in the local story */
+const RUN_NO = LOCAL ? "03" : "02";
 export interface Caption {
   no: string;
   label: string;
@@ -234,6 +369,8 @@ export interface Caption {
 const cap = (no: string, label: string, headline: string, sub: string): Caption => ({ no, label, headline, sub });
 const CONNECT = "Connect to SAS";
 const REPO_RUN = "Run from the repository";
+const STUDIO_LAUNCH = "Launch SAS Studio";
+const STUDIO_RUN = "Run SAS code";
 export const CAPTIONS = {
   // 01 - both stories
   signin: cap("01", CONNECT, "Sign in to SAS Viya from Posit Workbench", "Managed credentials: Workbench holds the OAuth token for SAS Viya"),
@@ -241,9 +378,9 @@ export const CAPTIONS = {
   profile: cap("01", CONNECT, "Add the SAS connection profile", "A profile in the user settings points Positron at SAS Analytics Pro over ssh"),
   aproSession: cap("01", CONNECT, "Start a SAS console", "SAS runs in the Console, next to R and Python"),
   // base story
-  run: cap("02", "Run SAS code", "Run SAS from the editor", `test.sas runs on ${SAS_NAME}, the log streams into the Console`),
-  html: cap("02", "Run SAS code", "ODS output opens in the Viewer", "Or in its own browser window, one click away"),
-  plots: cap("02", "Run SAS code", "Graphs go to the Plots pane", "Step through every plot of the run"),
+  run: cap(RUN_NO, "Run SAS code", "Run SAS from the editor", LOCAL ? "SAS 9.4 in the same container runs test.sas, the log streams into the Console" : `test.sas runs on ${SAS_NAME}, the log streams into the Console`),
+  html: cap(RUN_NO, "Run SAS code", "ODS output opens in the Viewer", "Or in its own browser window, one click away"),
+  plots: cap(RUN_NO, "Run SAS code", "Graphs go to the Plots pane", "Step through every plot of the run"),
   connections: cap("03", "Libraries and data", "SAS libraries show up in Data Connections", "WORK, SASHELP and DEMO, read live from the SAS session"),
   explorer: cap("03", "Libraries and data", "Tables open in the Data Explorer", "Column profiles with histograms, missing values and summary statistics"),
   filter: cap("03", "Libraries and data", "Sort and filter without writing code", "The Data Explorer runs each query as SAS in your session"),
@@ -276,6 +413,19 @@ export const CAPTIONS = {
   jobRepoRun: cap("05", REPO_RUN, "Run the job from the repository", "SAS runs it in a clean workspace with exactly the declared inputs"),
   manifest: cap("05", REPO_RUN, "The manifest report", "Which job ran, when, and as whom"),
   manifestInputs: cap("05", REPO_RUN, "Exact versions of program and data", "test.sas v1.1 read large_study_data.sas7bdat v1.0, with checksums"),
+  // SAS Studio story
+  studioLaunch: cap("01", STUDIO_LAUNCH, "New Session: SAS Studio", "Posit Workbench offers it next to Positron, RStudio, JupyterLab and VS Code"),
+  studioImage: cap("01", STUDIO_LAUNCH, "Its own container image", "Positron runs in the Workbench session image, SAS Studio in SAS Analytics Pro"),
+  studioStart: cap("01", STUDIO_LAUNCH, "Workbench starts SAS Analytics Pro", "A Kubernetes pod with SAS Studio and SAS 9.4, signed in with your Workbench login"),
+  studioOpen: cap("02", STUDIO_RUN, "SAS Studio, in your browser", "Your home directory is the same as in every other Workbench session"),
+  studioRun: cap("02", STUDIO_RUN, "Run test.sas", "SAS 9.4 in the Analytics Pro pod runs it, SAS Studio shows the results"),
+  studioResults: cap("02", STUDIO_RUN, "Tables and plots in the Results tab", "PROC HPMIXED, UNIVARIATE and SGPLOT output"),
+  // local SAS story
+  localLaunch: cap("01", "Launch Positron", "New Session for the sas-demo project", "Positron Pro, as in every other Workbench session"),
+  localImage: cap("01", "Launch Positron", "Pick the SAS Analytics Pro image", "Instead of the Workbench session image: SAS 9.4 is installed in it"),
+  localStart: cap("01", "Launch Positron", "Workbench starts the Analytics Pro container", "The session init container adds Positron to it"),
+  localProfile: cap("02", CONNECT, "The extension finds SAS in the container", "and adds a \"local\" connection profile by itself: SAS over stdio"),
+  localSession: cap("02", CONNECT, "Start a SAS (local) console", "No SAS server, no ssh: SAS runs inside the Positron session"),
   manifestOutputs: cap("05", REPO_RUN, "The output, checked in as a new version", "residuals_vs_predicted.pdf v1.0, traced back to its program"),
 } satisfies Record<string, Caption>;
 export type CaptionId = keyof typeof CAPTIONS;

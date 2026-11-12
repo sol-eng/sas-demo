@@ -1,12 +1,12 @@
 // Post-process the recording into videos/demo-<edition><story>.mp4, from videos/timing-<edition><story>.json
-// (written by demo.ts). STORY=housing / STORY=clinical add the "-housing" / "-clinical" suffix to both names.
+// (written by demo.ts). STORY=housing / clinical / studio / local add the "-housing" / "-clinical" / "-studio" / "-local" suffix.
 //
 // Always: trim the pre-roll and the idle time after the closing card, overlay the separate browser windows
 // (popups) while they were open, and remove the "cuts" (unrecorded work).
 //
 // Caption mode (timing has captions; all stories), in addition:
 //   - speed-ups: the "fast" and "wait" stretches get the smallest factors (from 1.5x, 2x, 3x, ...) that bring the
-//     video down to TARGET_SEC (default 180 s, housing 300 s, clinical 280 s); SPEED_FAST / SPEED_WAIT force factors.
+//     video down to TARGET_SEC (default 180 s, housing 300 s, clinical 280 s, studio 120 s, local 150 s); SPEED_FAST / SPEED_WAIT force factors.
 //     A badge ("3x") shows while a stretch plays faster.
 //   - layout: the screen is scaled into LAYOUT.screen with the caption bar beneath it; the title, architecture
 //     and closing cards stay full frame.
@@ -16,7 +16,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
-import { CAPTIONS, CLINICAL, EDITION, HOUSING, LAYOUT, STORY_SUFFIX, overlayHtml } from "./cards.ts";
+import { CAPTIONS, CLINICAL, EDITION, HOUSING, LAYOUT, LOCAL, STORY_SUFFIX, STUDIO, overlayHtml } from "./cards.ts";
 import type { Range, SpeedKind, Timing } from "./timeline.ts";
 
 const NAME = `${EDITION}${STORY_SUFFIX}`;
@@ -156,7 +156,7 @@ async function captioned() {
   const start = t.demoStartSec!;
   const end = t.demoEndSec ?? 1e9;
   const ps = pieces(start, end, t.cuts ?? [], t.speed ?? []);
-  const target = Number(process.env.TARGET_SEC ?? (HOUSING ? 300 : CLINICAL ? 280 : 180));
+  const target = Number(process.env.TARGET_SEC ?? (HOUSING ? 300 : CLINICAL ? 280 : STUDIO ? 120 : LOCAL ? 150 : 180));
   const fac = chooseFactors(ps, target);
   let o = 0;
   for (const p of ps) {

@@ -1,0 +1,10 @@
+import { chromium } from "playwright";
+import { VIEWPORT } from "./config.ts";
+import { login } from "./helpers.ts";
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: VIEWPORT });
+await login(page);
+await page.waitForTimeout(5000);
+await page.screenshot({ path: "screenshots/16-state.png" });
+console.log((await page.locator("tr, [role=row]").allInnerTexts()).map((t) => t.replace(/\s+/g, " ")));
+await browser.close();

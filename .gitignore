@@ -1,0 +1,7 @@
+scripts/env.sh
+scripts/env.*.sh
+!scripts/env.example.sh
+.DS_Store
+/large_study_data.sas7bdat
+demo-video/logs/
+demo-video/backup/videos-video2/

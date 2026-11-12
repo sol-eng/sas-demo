@@ -1,0 +1,30 @@
+{
+  "name": "sas-demo-video",
+  "private": true,
+  "type": "module",
+  "description": "Playwright scripts that drive and record the SAS demo on Posit Workbench",
+  "scripts": {
+    "setup": "tsx src/setup.ts",
+    "demo": "tsx src/demo.ts",
+    "cleanup": "tsx src/cleanup.ts",
+    "cards": "tsx src/cards-preview.ts",
+    "typecheck": "tsc --noEmit",
+    "finalize": "tsx src/finalize.ts",
+    "demo:apro": "EDITION=apro tsx src/record.ts",
+    "demo:viya": "EDITION=viya tsx src/record.ts",
+    "demo:apro:housing": "EDITION=apro STORY=housing tsx src/record.ts",
+    "demo:viya:housing": "EDITION=viya STORY=housing tsx src/record.ts",
+    "demo:viya:clinical": "EDITION=viya STORY=clinical tsx src/record.ts",
+    "demo:apro:studio": "EDITION=apro STORY=studio tsx src/record.ts",
+    "demo:apro:local": "EDITION=apro STORY=local tsx src/record.ts",
+    "cleanup:profile": "tsx src/cleanup-profile.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/qrcode": "^1.5.6",
+    "playwright": "^1.64.1",
+    "qrcode": "^1.5.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,16 +1,20 @@
-/* Analysis of the synthetic study dataset from the clinical repository
-(/PositDemo/SAS-Demo/data/sdtm/large_study_data.sas7bdat).
-Workspace root: in a clinical job _SASWS_ points to the job's workspace. Interactively
-(SAS Viya session, SAS Studio) the workspace is mounted at /clinical/workspaces and mirrors
-the repository path; SAS Studio sets _SASWS_ to its WORK folder, hence the PositDemo check. */
+/* Analysis of the synthetic study dataset (large_study_data.sas7bdat, written by create_data.sas).
+Where the data is read from:
+- clinical job: _SASWS_ is the job's workspace (PositDemo/SAS-Demo/data/sdtm, synced from the repository);
+- SAS Viya session with Clinical Acceleration: the workspace mount /clinical/workspaces (same layout;
+  SAS Studio sets _SASWS_ to its WORK folder, hence the PositDemo check);
+- anywhere else (SAS Analytics Pro, SAS Studio, Positron): the root of this repository, ~/sas-demo. */
 data _null_;
+    length ws $ 1024;
     ws = '/clinical/workspaces';
     if symexist('_SASWS_') then
         if fileexist(cats(symget('_SASWS_'), '/PositDemo')) then ws = symget('_SASWS_');
     call symputx('ws', ws);
+    call symputx('clinical', fileexist(cats(ws, '/PositDemo/SAS-Demo/data/sdtm')));
 run;
 
 %let repo_path="&ws/PositDemo/SAS-Demo/data/sdtm/";
+%if not &clinical %then %do; %let repo_path="%sysget(HOME)/sas-demo"; %end;
 libname demo &repo_path;
 
 /* Simple PROC MIXED analysis with residuals output */
@@ -33,18 +37,21 @@ proc univariate data=mixed_results plots;
     title 'Residual Analysis for Mixed Model';
 run;
 
-/* Diagnostic plot as a PDF in the outputs folder (the repository accepts only the file types
-in allowedFileExtensions: pdf yes, png no). dlcreatedir creates the folder if it is missing. */
-%let out_path="&ws/PositDemo/SAS-Demo/outputs/";
-options dlcreatedir;
-libname outdir &out_path;
-libname outdir clear;
-
-ods pdf file="&ws/PositDemo/SAS-Demo/outputs/residuals_vs_predicted.pdf";
+/* Diagnostic plot. With Clinical Acceleration also as a PDF in the outputs folder (the repository
+accepts only the file types in allowedFileExtensions: pdf yes, png no; dlcreatedir creates the folder). */
+%if &clinical %then %do;
+    options dlcreatedir;
+    libname outdir "&ws/PositDemo/SAS-Demo/outputs/";
+    libname outdir clear;
+    ods pdf file="&ws/PositDemo/SAS-Demo/outputs/residuals_vs_predicted.pdf";
+%end;
 
 proc sgplot data=mixed_results;
     scatter x=pred y=resid;
     refline 0 / axis=y;
     title 'Residuals vs Predicted Values';
 run;
-ods pdf close;
+
+%if &clinical %then %do;
+    ods pdf close;
+%end;
